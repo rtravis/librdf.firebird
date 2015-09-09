@@ -1,0 +1,14 @@
+/*
+ * FileName.h|cpp - short description here
+ *
+ * This is part of the "librdf.firebird" storage module for the
+ * "Redland RDF Library" (http://librdf.org/) that stores and
+ * retrieves RDF data from a Firebird database.
+ *
+ * @created: Mmm dd, 2015
+ *
+ * @copyright: Copyright (c) 2015 Robert Zavalczki, distributed
+ * under the terms and conditions of the Lesser GNU General
+ * Public License version 2.1
+ */
+-----------------------------------------------------------------
