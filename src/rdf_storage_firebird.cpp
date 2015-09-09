@@ -896,7 +896,7 @@ static int pub_transaction_rollback(librdf_storage *storage)
 	return rc;
 }
 
-#pragma mark Iterator
+// iterator implementation
 
 namespace impl {
 
