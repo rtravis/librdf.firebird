@@ -26,87 +26,87 @@ namespace cache
 {
 
 template<class KeyType,
-		class ValueType,
-		class GetValueFunc,
-		unsigned int MAX_SIZE = 100>
+        class ValueType,
+        class GetValueFunc,
+        unsigned int MAX_SIZE = 100>
 class GenericCache
 {
 public:
-	GenericCache(GetValueFunc func) : func_(func)
-	{
-	}
+    GenericCache(GetValueFunc func) : func_(func)
+    {
+    }
 
-	~GenericCache()
-	{
-	}
+    ~GenericCache()
+    {
+    }
 
-	ValueType getValue(KeyType key)
-	{
-		if (generation_++ % (2 * MAX_SIZE) == 0) {
-			removeOldItems();
-		}
+    ValueType getValue(KeyType key)
+    {
+        if (generation_++ % (2 * MAX_SIZE) == 0) {
+            removeOldItems();
+        }
 
-		CmIterator i = map_.find(key);
-		if (i == map_.end()) {
-			ValueType val = func_(key);
-			// cout << "Cache MISS: " << key << " val: " << val << " gen: " << generation_ << "\n";
-			if (val) { // TODO: this is not right
-				return map_.emplace(
-						std::make_pair(key, Item{ generation_, func_(key) })).first->second.value_;
-			} else {
-				return ValueType(); // TODO: this is not right
-			}
+        CmIterator i = map_.find(key);
+        if (i == map_.end()) {
+            ValueType val = func_(key);
+            // cout << "Cache MISS: " << key << " val: " << val << " gen: " << generation_ << "\n";
+            if (val) { // TODO: this is not right
+                return map_.emplace(
+                        std::make_pair(key, Item{ generation_, func_(key) })).first->second.value_;
+            } else {
+                return ValueType(); // TODO: this is not right
+            }
 
-			// Item cacheItem{generation_, func_(key)};
-			// return map_.insert(std::make_pair(key, cacheItem)).first->second.value_;
-		} else {
-			//cout << "Cache HIT : " << key << " val: " << i->second.value_
-			//	 << " gen: " << generation_ << "/" << i->second.generation_ << "\n";
-			i->second.generation_ = generation_;
-			return i->second.value_;
-		}
-	}
+            // Item cacheItem{generation_, func_(key)};
+            // return map_.insert(std::make_pair(key, cacheItem)).first->second.value_;
+        } else {
+            //cout << "Cache HIT : " << key << " val: " << i->second.value_
+            //     << " gen: " << generation_ << "/" << i->second.generation_ << "\n";
+            i->second.generation_ = generation_;
+            return i->second.value_;
+        }
+    }
 
 private:
 
-	void removeOldItems()
-	{
-		if (map_.size() <= MAX_SIZE) {
-			return;
-		}
-		std::vector<typename CacheMap::iterator> items;
-		items.reserve(map_.size());
-		for (auto i = map_.begin(); i != map_.end(); ++i) {
-			items.push_back(i);
-		}
+    void removeOldItems()
+    {
+        if (map_.size() <= MAX_SIZE) {
+            return;
+        }
+        std::vector<typename CacheMap::iterator> items;
+        items.reserve(map_.size());
+        for (auto i = map_.begin(); i != map_.end(); ++i) {
+            items.push_back(i);
+        }
 
-		auto genCompare = [] (CmIterator a, CmIterator b) {
-			return b->second.generation_ < a->second.generation_;
-		};
-		// TODO: use partition instead of sort
+        auto genCompare = [] (CmIterator a, CmIterator b) {
+            return b->second.generation_ < a->second.generation_;
+        };
+        // TODO: use partition instead of sort
 
-		std::sort(items.begin(), items.end(), genCompare);
+        std::sort(items.begin(), items.end(), genCompare);
 
-		assert(items.size() > MAX_SIZE);
-		for (auto i = items.begin() + MAX_SIZE; i != items.end(); ++i) {
-			// cout << "Cache erase: " << (*i)->first << " gen: " << (*i)->second.generation_ << "\n";
-			map_.erase(*i);
-		}
-	}
+        assert(items.size() > MAX_SIZE);
+        for (auto i = items.begin() + MAX_SIZE; i != items.end(); ++i) {
+            // cout << "Cache erase: " << (*i)->first << " gen: " << (*i)->second.generation_ << "\n";
+            map_.erase(*i);
+        }
+    }
 
-	struct Item
-	{
-		int64_t generation_;
-		ValueType value_;
-	};
+    struct Item
+    {
+        int64_t generation_;
+        ValueType value_;
+    };
 
-	//typedef std::unordered_map<KeyType, Item> CacheMap;
-	typedef std::map<KeyType, Item> CacheMap;
-	typedef typename CacheMap::iterator CmIterator;
+    //typedef std::unordered_map<KeyType, Item> CacheMap;
+    typedef std::map<KeyType, Item> CacheMap;
+    typedef typename CacheMap::iterator CmIterator;
 
-	int64_t generation_ = 0;
-	CacheMap map_;
-	GetValueFunc func_;
+    int64_t generation_ = 0;
+    CacheMap map_;
+    GetValueFunc func_;
 };
 
 } /* namespace cache */

@@ -11,7 +11,6 @@
  * under the terms and conditions of the Lesser GNU General
  * Public License version 2.1
  */
-
 #include "rdf_storage_firebird.h"
 #include "fb/DbConnection.h"
 #include "fb/DbTransaction.h"
@@ -738,6 +737,7 @@ static int64_t find_statement(librdf_storage *storage,
 
 void update_index_statistics(DbConnection &db, DbTransaction &tr)
 {
+	// TODO: should not call this for big databases
 	const char *sql = "SELECT RDB$INDEX_NAME "
 					   "FROM RDB$INDICES "
 					    "WHERE RDB$SYSTEM_FLAG=0";

@@ -1,5 +1,18 @@
----------------------------------------------------------
-/* create database objects */
+/*
+ * librdf_firebird_schema.sql
+ *
+ * SQL statements defining the librdf.firebird database schema
+ *
+ * This is part of the "librdf.firebird" storage module for the
+ * "Redland RDF Library" (http://librdf.org/) that stores and
+ * retrieves RDF data from a Firebird database.
+ *
+ * @created: Mmm dd, 2015
+ *
+ * @copyright: Copyright (c) 2015 Robert Zavalczki, distributed
+ * under the terms and conditions of the Lesser GNU General
+ * Public License version 2.1
+ */
 
 CREATE SEQUENCE SEQ_RESOURCE;
 CREATE SEQUENCE SEQ_LITERAL;
@@ -104,6 +117,7 @@ LEFT JOIN LITERAL lo ON r.O_LITERAL = lo.ID
 LEFT JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID
 LEFT JOIN RESOURCE c ON r.C_URI = c.ID;
 
+/* unfriendly view of the triples */
 CREATE VIEW STATEMENTS as
 SELECT r.ID as statement_id,
        rs.URI as s_uri,
