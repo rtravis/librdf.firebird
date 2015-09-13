@@ -1,9 +1,7 @@
 
-[Firebird](http://firebirdsql.org/) RDF triple 
-[storage module](http://librdf.org/docs/api/redland-storage-modules.html)
-for [librdf](http://librdf.org/).
+# [Firebird](http://firebirdsql.org/) RDF triple [storage module](http://librdf.org/docs/api/redland-storage-modules.html) for [librdf](http://librdf.org/).
 
-# Overview
+## Overview
 
 librdf.firebird is a storage module for the [Redland RDF Library](http://librdf.org/)
 that stores and retrieves [RDF](http://www.w3.org/RDF/) data from a Firebird 
@@ -15,14 +13,14 @@ theory - could give you wrong results.
 Inspired by the [official sqlite store](https://github.com/dajobe/librdf/blob/master/src/rdf_storage_sqlite.c)
 and the [improved sqlite store](https://github.com/mro/librdf.sqlite). 
 
-# Requirements
+## Requirements
 
 To use librdf.firebird in your program you need: a C++11 capable compiler, the
 Redland libraries (librdf) and the Firebird libraries. The
 [DbWrap++FB](https://github.com/rtravis/DbWrap-FB) C++ wrapper library for the
 Firebird C API is included as a git submodule.
 
-# Usage
+## Usage
 
 For sample usage: RDF data importing and running SPARQL queries you can refer
 to the "rdf_firebird_tester.cpp" file in the sources directory.
