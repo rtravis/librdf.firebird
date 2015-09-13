@@ -735,22 +735,6 @@ static int64_t find_statement(librdf_storage *storage,
 	return st->uniqueResult().getInt64(0);
 }
 
-void update_index_statistics(DbConnection &db, DbTransaction &tr)
-{
-	// TODO: should not call this for big databases
-	const char *sql = "SELECT RDB$INDEX_NAME "
-					   "FROM RDB$INDICES "
-					    "WHERE RDB$SYSTEM_FLAG=0";
-
-	DbStatement st = db.createStatement(sql, &tr);
-	string q;
-	for (DbStatement::Iterator i = st.iterate(); i != st.end(); ++i) {
-		q = "SET STATISTICS INDEX ";
-		q += (*i).getText(0);
-		db.executeUpdate(q.c_str(), &tr);
-	}
-}
-
 } // namespace impl
 
 /*
@@ -777,6 +761,11 @@ static int pub_init(librdf_storage *storage, const char *name,
         is_new = true;
     }
 
+    bool update_index_stats = false;
+    if(librdf_hash_get_as_boolean(options, "update_index_stats")) {
+    	update_index_stats = true;
+    }
+
     int rc = RET_OK;
 
     try {
@@ -785,10 +774,12 @@ static int pub_init(librdf_storage *storage, const char *name,
 			create_firebird_rdf_db(name);
 		}
 
-		Instance *inst = new Instance(name);
+		if (update_index_stats) {
+		    // optimize queries
+		    update_index_statistics(name);
+		}
 
-		// optimize queries
-		update_index_statistics(inst->db_, inst->tr_);
+		Instance *inst = new Instance(name);
 
 		librdf_storage_set_instance(storage, inst);
 

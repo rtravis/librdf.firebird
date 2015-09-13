@@ -282,4 +282,22 @@ void create_firebird_rdf_db(const char *dbName)
     }
 }
 
+void update_index_statistics(const char *dbName)
+{
+    DbConnection db{dbName};
+    DbTransaction tr{db.nativeHandle(), 1};
+
+    const char *sql = "SELECT RDB$INDEX_NAME "
+                      "FROM RDB$INDICES "
+                      "WHERE RDB$SYSTEM_FLAG=0";
+
+    DbStatement st = db.createStatement(sql, &tr);
+    string q;
+    for (DbStatement::Iterator i = st.iterate(); i != st.end(); ++i) {
+        q = "SET STATISTICS INDEX ";
+        q += (*i).getText(0);
+        db.executeUpdate(q.c_str(), &tr);
+    }
+}
+
 } /* namespace rdf */

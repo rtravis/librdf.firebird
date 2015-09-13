@@ -37,17 +37,17 @@ static shared_ptr<librdf_world> make_rdf_world()
 static shared_ptr<librdf_storage> make_rdf_storage(librdf_world *world,
                                                 const char *file_path,
                                                 bool is_new = false,
-                                                bool use_contexts = true)
+                                                bool update_index_stats = false)
 {
     char options[64];
     snprintf(options, sizeof(options),
-            "new='%s', contexts='%s', synchronous='off'",
-            is_new ? "yes" : "no", use_contexts ? "yes" : "no");
+            "new='%s', update_index_stats='%s'",
+            is_new ? "yes" : "no", update_index_stats ? "yes" : "no");
     shared_ptr<librdf_storage> store(
                                 librdf_new_storage(world,
-                                            LIBRDF_STORAGE_FIREBIRD,
-                                        file_path,
-                                        options),
+                                                   LIBRDF_STORAGE_FIREBIRD,
+                                                   file_path,
+                                                   options),
                                 &librdf_free_storage);
     return store;
 }

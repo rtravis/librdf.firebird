@@ -18,6 +18,7 @@ namespace rdf
 {
 
 void create_firebird_rdf_db(const char *dbName);
+void update_index_statistics(const char *dbName);
 
 } /* namespace rdf */
 
