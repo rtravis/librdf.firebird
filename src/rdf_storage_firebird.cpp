@@ -339,7 +339,8 @@ enum idx_triple_column_t : int
     IDX_O_TEXT,
     IDX_O_LANGUAGE,
     IDX_O_DATATYPE,
-    IDX_C_URI
+    IDX_C_URI,
+    IDX_STATEMENT_COUNT
 };
 
 /** return 0 if resource does not exist */
@@ -767,7 +768,6 @@ static int pub_init(librdf_storage *storage, const char *name,
     }
 
     int rc = RET_OK;
-
     try {
 
 		if (is_new) {
@@ -1095,9 +1095,7 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
 {
     Instance *db_ctx = get_instance(storage);
 
-    // TODO: optimize query by removing LEFT when possible!!!!
-
-    string query = R"(
+    /*
     SELECT r.ID as statement_id,
            rs.URI as s_uri,
            bs.NAME as s_blank,
@@ -1117,9 +1115,28 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
     LEFT JOIN LITERAL lo ON r.O_LITERAL = lo.ID
     LEFT JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID
     LEFT JOIN RESOURCE c ON r.C_URI = c.ID
-    )";
+    */
 
-    query += "WHERE 1=1 ";
+    using std::vector;
+
+    vector<string> selectFields = {
+        "r.ID as statement_id",
+        "null as s_uri",
+        "null as s_blank",
+        "rp.URI as predicate",
+        "null as o_uri",
+        "null as o_blank",
+        "null as o_literal",
+        "null as o_lit_lang",
+        "null as o_lit_dt",
+        "c.URI as context"
+    };
+    assert(selectFields.size() == IDX_STATEMENT_COUNT);
+
+    vector<string> innerJoins;
+    vector<string> outerJoins;
+    vector<string> whereCond;
+
 
 	librdf_node *s = librdf_statement_get_subject(statement);
 	librdf_node *p = librdf_statement_get_predicate(statement);
@@ -1130,61 +1147,136 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
 	size_t idx = 0;
 
 	if (node_type(s) == LIBRDF_NODE_TYPE_RESOURCE) {
-		len = 0;
-		parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(s), &len);
-		query += "AND rs.URI=? ";
+        selectFields[IDX_S_URI] = "rs.URI as s_uri";
+        innerJoins.emplace_back("JOIN RESOURCE rs ON r.S_URI = rs.ID");
+        whereCond.emplace_back("rs.URI=?");
+        len = 0;
+        parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(s), &len);
 	} else if (node_type(s) == LIBRDF_NODE_TYPE_BLANK) {
-		len = 0;
-		parameters[idx++] = librdf_node_get_counted_blank_identifier(s, &len);
-		query += "AND bs.NAME=? ";
+        selectFields[IDX_S_BLANK] = "bs.NAME as s_blank";
+        innerJoins.emplace_back("JOIN BNODE bs ON r.S_BLANK = bs.ID");
+        whereCond.emplace_back("bs.NAME=?");
+        len = 0;
+        parameters[idx++] = librdf_node_get_counted_blank_identifier(s, &len);
 	} else if (node_type(s) == LIBRDF_NODE_TYPE_LITERAL) {
-		// ain't no literal a subject
-		return nullptr;
+        // ain't no literal a subject
+        return nullptr;
+	} else {
+        selectFields[IDX_S_URI] = "rs.URI as s_uri";
+        selectFields[IDX_S_BLANK] = "bs.NAME as s_blank";
+        outerJoins.emplace_back("LEFT JOIN RESOURCE rs ON r.S_URI = rs.ID");
+        outerJoins.emplace_back("LEFT JOIN BNODE bs ON r.S_BLANK = bs.ID");
 	}
 
-	if (node_type(p) == LIBRDF_NODE_TYPE_RESOURCE) {
-		len = 0;
-		parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(p), &len);
-		query += "AND rp.URI=? ";
-	} else if (node_type(p) != LIBRDF_NODE_TYPE_UNKNOWN) {
-		assert(!"invalid predicate type in query");
-		return nullptr;
-	}
+    innerJoins.emplace_back("JOIN RESOURCE rp ON r.P_URI = rp.id");
 
-	if (node_type(o) == LIBRDF_NODE_TYPE_RESOURCE) {
-		len = 0;
-		parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(o), &len);
-		query += "AND ro.URI=? ";
-	} else if (node_type(o) == LIBRDF_NODE_TYPE_BLANK) {
-		len = 0;
-		parameters[idx++] = librdf_node_get_counted_blank_identifier(o, &len);
-		query += "AND bo.NAME=? ";
-	} else if (node_type(o) == LIBRDF_NODE_TYPE_LITERAL) {
-		len = 0;
-		parameters[idx++] = librdf_node_get_literal_value_as_counted_string(o, &len);
-		query += "AND lo.VAL=? ";
+    if (node_type(p) == LIBRDF_NODE_TYPE_RESOURCE) {
+        whereCond.emplace_back("rp.URI=?");
+        len = 0;
+        parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(p),
+                &len);
+    } else if (node_type(p) != LIBRDF_NODE_TYPE_UNKNOWN) {
+        assert(!"invalid predicate type in query");
+        return nullptr;
+    }
 
-		librdf_uri *uri = librdf_node_get_literal_value_datatype_uri(o);
-		if (uri) {
-			len = 0;
-			parameters[idx++] = librdf_uri_as_counted_string(uri, &len);
-			query += "AND ldt.URI=? ";
-		}
-		const char *l = librdf_node_get_literal_value_language(o);
-		if (l) {
-			parameters[idx++] = (const unsigned char*) l;
-			query += "AND lo.LANGUAGE=? ";
-		}
-	}
+    if (node_type(o) == LIBRDF_NODE_TYPE_RESOURCE) {
+        selectFields[IDX_O_URI] = "ro.URI as o_uri";
+        innerJoins.emplace_back("JOIN RESOURCE ro ON r.O_URI = ro.ID");
+        whereCond.emplace_back("ro.URI=?");
+        len = 0;
+        parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(o),
+                &len);
+    } else if (node_type(o) == LIBRDF_NODE_TYPE_BLANK) {
+        selectFields[IDX_O_BLANK] = "bo.NAME as o_blank";
+        innerJoins.emplace_back("JOIN BNODE bo ON r.O_BLANK = bo.ID");
+        whereCond.emplace_back("bo.NAME=?");
+        len = 0;
+        parameters[idx++] = librdf_node_get_counted_blank_identifier(o, &len);
+    } else if (node_type(o) == LIBRDF_NODE_TYPE_LITERAL) {
+        selectFields[IDX_O_TEXT] = "lo.VAL as o_literal";
+        selectFields[IDX_O_LANGUAGE] = "lo.LANGUAGE as o_lit_lang";
+        innerJoins.emplace_back("JOIN LITERAL lo ON r.O_LITERAL = lo.ID");
+        whereCond.emplace_back("lo.VAL=?");
+        len = 0;
+        parameters[idx++] = librdf_node_get_literal_value_as_counted_string(o,
+                &len);
 
-	if (context_node) {
-		len = 0;
-		parameters[idx++] = librdf_uri_as_counted_string(
-								librdf_node_get_uri(context_node), &len);
-		query += "AND c.URI=? ";
-	}
+        librdf_uri *uri = librdf_node_get_literal_value_datatype_uri(o);
+        if (uri) {
+            selectFields[IDX_O_DATATYPE] = "ldt.URI as o_lit_dt";
+            innerJoins.emplace_back(
+                    "JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID");
+            whereCond.emplace_back("ldt.URI=?");
+            len = 0;
+            parameters[idx++] = librdf_uri_as_counted_string(uri, &len);
+        }
 
-	printf("%s\n", query.c_str());
+        const char *l = librdf_node_get_literal_value_language(o);
+        if (l) {
+            whereCond.emplace_back("lo.LANGUAGE=?");
+            parameters[idx++] = (const unsigned char*) l;
+        } else {
+            whereCond.emplace_back("lo.LANGUAGE IS NULL");
+        }
+    } else {
+        selectFields[IDX_O_URI] = "ro.URI as o_uri";
+        selectFields[IDX_O_BLANK] = "bo.NAME as o_blank";
+        selectFields[IDX_O_TEXT] = "lo.VAL as o_literal";
+        selectFields[IDX_O_LANGUAGE] = "lo.LANGUAGE as o_lit_lang";
+        selectFields[IDX_O_DATATYPE] = "ldt.URI as o_lit_dt";
+
+        outerJoins.emplace_back("LEFT JOIN RESOURCE ro ON r.O_URI = ro.ID");
+        outerJoins.emplace_back("LEFT JOIN BNODE bo ON r.O_BLANK = bo.ID");
+        outerJoins.emplace_back("LEFT JOIN LITERAL lo ON r.O_LITERAL = lo.ID");
+        outerJoins.emplace_back(
+                "LEFT JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID");
+    }
+
+    if (context_node) {
+        innerJoins.emplace_back("JOIN RESOURCE c ON r.C_URI = c.ID");
+        whereCond.emplace_back("c.URI=?");
+        len = 0;
+        parameters[idx++] = librdf_uri_as_counted_string(
+                librdf_node_get_uri(context_node), &len);
+    } else {
+        outerJoins.emplace_back("LEFT JOIN RESOURCE c ON r.C_URI = c.ID");
+    }
+
+    // build query
+    string query = "SELECT\n";
+    for (string s : selectFields) {
+        query += s;
+        query += ",\n";
+    };
+
+    // erase last ",\n"
+    query.erase(query.length() - 2, 2);
+
+    query += "\nFROM TRIPLE r\n";
+
+    // put inner joins first
+    // the Firebird query optimiser seems to mind the order
+    for (string s : innerJoins) {
+        query += s;
+        query += "\n";
+    }
+
+    for (string s : outerJoins) {
+        query += s;
+        query += "\n";
+    }
+
+    query += "WHERE\n";
+    for (vector<string>::const_iterator i = whereCond.begin();
+            i != whereCond.end(); ++i) {
+        if (i != whereCond.begin()) {
+            query += " AND ";
+        }
+        query += *i;
+    }
+
+    printf("%s\n", query.c_str());
 
     librdf_world *w = get_world(storage);
     // create iterator
@@ -1193,25 +1285,24 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
     iter->pattern = librdf_new_statement_from_statement(statement);
     iter->statement = librdf_new_statement(w);
     iter->context = context_node;
-    iter->stmt = new DbStatement(std::move(db_ctx->db_.createStatement(
-    											query.c_str(), &db_ctx->tr_)));
+    iter->stmt = new DbStatement(
+            std::move(
+                    db_ctx->db_.createStatement(query.c_str(), &db_ctx->tr_)));
     iter->it = nullptr;
     iter->dirty = false;
 
     // bind query parameters, before creating an iterator
-	for (unsigned int i = 0; i != idx; ++i) {
-		iter->stmt->setText(i + 1, (const char*) parameters[i]);
-	}
+    for (unsigned int i = 0; i != idx; ++i) {
+        iter->stmt->setText(i + 1, (const char*) parameters[i]);
+    }
 
     iter->it = new DbStatement::Iterator(std::move(iter->stmt->iterate()));
     iter->dirty = true;
 
     librdf_storage_add_reference(iter->storage);
-    librdf_stream *stream = librdf_new_stream(w, iter,
-    										  &pub_iter_end_of_stream,
-											  &pub_iter_next_statement,
-											  &pub_iter_get_statement,
-											  &pub_iter_finished);
+    librdf_stream *stream = librdf_new_stream(w, iter, &pub_iter_end_of_stream,
+            &pub_iter_next_statement, &pub_iter_get_statement,
+            &pub_iter_finished);
 
     return stream;
 }
