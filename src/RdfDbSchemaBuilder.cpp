@@ -58,7 +58,7 @@ static DbObject db_schema[] = {
     R"(CREATE TABLE Resource
 (
     ID bigint NOT NULL,
-    URI varchar(255) NOT NULL,
+    URI varchar(1024) NOT NULL,
     CONSTRAINT PK_RESOURCE PRIMARY KEY(ID),
     CONSTRAINT UQ_RESOURCE_URI UNIQUE (URI)
 ))"
@@ -69,8 +69,8 @@ static DbObject db_schema[] = {
     R"(CREATE TABLE Literal
 (
     ID bigint NOT NULL,
-    VAL varchar(1000) NOT NULL,
-    LANGUAGE varchar(8) DEFAULT NULL,
+    VAL varchar(1250) NOT NULL,
+    LANGUAGE varchar(16) DEFAULT NULL,
     DATATYPE BIGINT DEFAULT NULL,
     CONSTRAINT PK_LITERAL PRIMARY KEY(ID),
     CONSTRAINT FK_LITERAL_DATATYPE 
@@ -88,7 +88,7 @@ static DbObject db_schema[] = {
     R"(CREATE TABLE Bnode
 (
     ID bigint NOT NULL,
-    NAME varchar(40) NOT NULL,
+    NAME varchar(64) NOT NULL,
     CONSTRAINT PK_BNODE PRIMARY KEY(ID),
     CONSTRAINT UQ_BNODE_NAME UNIQUE (NAME)
 ))"
