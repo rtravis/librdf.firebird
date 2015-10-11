@@ -79,11 +79,20 @@ static shared_ptr<librdf_uri> make_rdf_uri(librdf_world *world,
     return uri;
 }
 
+/**
+ * \param file_name file containing RDF data
+ * \param parser_name the format of the RDF data in the file. If not set, the
+ * format will be guessed based on the file extension.
+ * \param base_uri the base URI to be considered for the document
+ * \param context_uri what context to use for the statements. If the special
+ * value "" is used, the file name will be used as the context URI.
+ */
 static bool import_file(librdf_world *world,
                         librdf_model *model,
                         const char *file_name,
                         const char *parser_name = nullptr,
-                        bool set_context = true)
+                        const char *base_uri = nullptr,
+                        const char *context_uri = nullptr)
 {
     map<string, string> parsers{
         { "nt", "ntriples" },
@@ -116,10 +125,24 @@ static bool import_file(librdf_world *world,
         return false;
     }
 
-    librdf_stream *stream = librdf_parser_parse_as_stream(
-                                        parser.get(), uri.get(), uri.get());
+    shared_ptr<librdf_uri> base;
+    if (base_uri) {
+        base = make_rdf_uri(world, base_uri);
+    } else {
+        base = uri;
+    }
 
-    librdf_node *context_node = librdf_new_node_from_uri(world, uri.get());
+    librdf_stream *stream = librdf_parser_parse_as_stream(
+                                        parser.get(), uri.get(), base.get());
+
+    librdf_node *context_node = nullptr;
+    shared_ptr<librdf_uri> curi;
+    if (context_uri && *context_uri == '\0') {
+        context_node = librdf_new_node_from_uri(world, uri.get());
+    } else if (context_uri) {
+        curi = make_rdf_uri(world, context_uri);
+        context_node = librdf_new_node_from_uri(world, curi.get());
+    }
 
     librdf_model_context_add_statements(model, context_node, stream);
 
