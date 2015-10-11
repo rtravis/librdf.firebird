@@ -14,21 +14,20 @@
 #ifndef GENERICCACHE_H_
 #define GENERICCACHE_H_
 
-#include <map>
 #include <unordered_map>
 #include <algorithm>
 #include <vector>
 #include <cassert>
-#include <iostream> // TODO: remove
-using std::cout; // TODO: remove
+
 
 namespace cache
 {
 
-template<class KeyType,
-        class ValueType,
+template<typename KeyType,
+        typename ValueType,
         class GetValueFunc,
-        unsigned int MAX_SIZE = 100>
+        ValueType NotFoundValue = ValueType(),
+        unsigned int MAX_SIZE = 512>
 class GenericCache
 {
 public:
@@ -48,20 +47,17 @@ public:
 
         CmIterator i = map_.find(key);
         if (i == map_.end()) {
+            // cache miss, do the hard work
             ValueType val = func_(key);
-            // cout << "Cache MISS: " << key << " val: " << val << " gen: " << generation_ << "\n";
-            if (val) { // TODO: this is not right
+            if (val != NotFoundValue) {
                 return map_.emplace(
-                        std::make_pair(key, Item{ generation_, func_(key) })).first->second.value_;
+                        std::make_pair(
+                            key, Item{ generation_, val })).first->second.value_;
             } else {
-                return ValueType(); // TODO: this is not right
+                return NotFoundValue;
             }
-
-            // Item cacheItem{generation_, func_(key)};
-            // return map_.insert(std::make_pair(key, cacheItem)).first->second.value_;
         } else {
-            //cout << "Cache HIT : " << key << " val: " << i->second.value_
-            //     << " gen: " << generation_ << "/" << i->second.generation_ << "\n";
+            // cache hit
             i->second.generation_ = generation_;
             return i->second.value_;
         }
@@ -74,6 +70,7 @@ private:
         if (map_.size() <= MAX_SIZE) {
             return;
         }
+
         std::vector<typename CacheMap::iterator> items;
         items.reserve(map_.size());
         for (auto i = map_.begin(); i != map_.end(); ++i) {
@@ -83,13 +80,13 @@ private:
         auto genCompare = [] (CmIterator a, CmIterator b) {
             return b->second.generation_ < a->second.generation_;
         };
-        // TODO: use partition instead of sort
-
-        std::sort(items.begin(), items.end(), genCompare);
 
         assert(items.size() > MAX_SIZE);
-        for (auto i = items.begin() + MAX_SIZE; i != items.end(); ++i) {
-            // cout << "Cache erase: " << (*i)->first << " gen: " << (*i)->second.generation_ << "\n";
+        auto nthElem = items.begin() + MAX_SIZE;
+
+        std::nth_element(items.begin(), nthElem, items.end(), genCompare);
+
+        for (auto i = nthElem; i != items.end(); ++i) {
             map_.erase(*i);
         }
     }
@@ -100,8 +97,7 @@ private:
         ValueType value_;
     };
 
-    //typedef std::unordered_map<KeyType, Item> CacheMap;
-    typedef std::map<KeyType, Item> CacheMap;
+    typedef std::unordered_map<KeyType, Item> CacheMap;
     typedef typename CacheMap::iterator CmIterator;
 
     int64_t generation_ = 0;
