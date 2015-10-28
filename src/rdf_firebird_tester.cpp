@@ -96,6 +96,7 @@ static bool import_file(librdf_world *world,
 {
     map<string, string> parsers{
         { "nt", "ntriples" },
+        { "nq", "ntriples" },
         { "xml", "rdfxml" },
         { "ttl", "turtle" },
         { "rdf", "rdfxml" }
