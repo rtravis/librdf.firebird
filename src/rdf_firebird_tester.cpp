@@ -173,11 +173,19 @@ void run_query(librdf_world *world, librdf_model *model,
     librdf_free_query_results(res);
 }
 
+static int usage(int /* argc */, char *argv[])
+{
+    cout << "Usage: " << argv[0]
+         << " -d <db_file> [-i <import_rdf_file>] | [-q <sparql_query_file> ]\n";
+    return 1;
+}
+
 
 int main(int argc, char *argv[])
 {
     string importFile;
     string queryFile;
+	string dbFile;
 
     for (int i = 0; i < argc; ++i) {
 
@@ -189,13 +197,20 @@ int main(int argc, char *argv[])
             // query file
             queryFile = argv[i + 1];
             i++;
+        } else if (strcmp(argv[i], "-d") == 0 && (i + 1) < argc) {
+            // database file
+            dbFile = argv[i + 1];
+            i++;
         }
     }
 
+	if (dbFile.empty()) {
+	    cout << "Database file (-d switch) is required!\n";
+        return usage(argc, argv);
+	}
+
     if (importFile.empty() && queryFile.empty()) {
-        cout << "Usage: " << argv[0]
-             << " [-i <import_rdf_file>] | [-q <sparql_query_file> ]\n";
-        return 1;
+        return usage(argc, argv);
     }
 
     shared_ptr<librdf_world> world = make_rdf_world();
@@ -203,12 +218,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    const char *file_path =  "/tmp/rdf_store_fb2.fdb";
-
-    bool is_new = (access(file_path, F_OK) < 0);
+    bool is_new = (access(dbFile.c_str(), F_OK) < 0);
 
     shared_ptr<librdf_storage> store = make_rdf_storage(world.get(),
-                                                        file_path, is_new);
+                                                        dbFile.c_str(), is_new);
     if (!store) {
         return 1;
     }

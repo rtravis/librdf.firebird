@@ -764,12 +764,12 @@ static int pub_init(librdf_storage *storage, const char *name,
 	}
 
     bool is_new = false; /* default is NOT NEW */
-    if(librdf_hash_get_as_boolean(options, "new")) {
+    if(librdf_hash_get_as_boolean(options, "new") == 1) {
         is_new = true;
     }
 
     bool update_index_stats = false;
-    if(librdf_hash_get_as_boolean(options, "update_index_stats")) {
+    if(librdf_hash_get_as_boolean(options, "update_index_stats") == 1) {
     	update_index_stats = true;
     }
 
@@ -1372,7 +1372,6 @@ static int pub_context_add_statements(librdf_storage *storage,
     }
 
     int count = 0;
-
     for(; !librdf_stream_end(statement_stream);
     	   librdf_stream_next(statement_stream)) {
         librdf_statement *stmt = librdf_stream_get_object(statement_stream);
@@ -1381,7 +1380,8 @@ static int pub_context_add_statements(librdf_storage *storage,
             pub_transaction_rollback(storage);
             return rc;
         }
-        if ((count++ % 50000) == 0) {
+        if ((count++ % 200000) == 0) {
+        	// TODO: remove this!
         	printf("%07d statements added\n", count);
         }
     }
