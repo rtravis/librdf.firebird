@@ -191,7 +191,8 @@ struct PreparedStatements
 		},
 		{
 			// SELECT_TRIPLE_7
-			"SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_URI=? AND r.C_URI IS NULL",
+			"SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_URI=? AND r.C_URI IS NULL"
+            " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_URI))",
 			nullptr,
 			3, 1
 		},
@@ -203,7 +204,8 @@ struct PreparedStatements
 		},
 		{
 			// SELECT_TRIPLE_9
-			"SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_BLANK=? AND r.C_URI IS NULL",
+			"SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_BLANK=? AND r.C_URI IS NULL"
+		    " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_BLANK))",
 			nullptr,
 			3, 1
 		},
