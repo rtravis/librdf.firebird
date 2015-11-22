@@ -1269,17 +1269,20 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
 
     // put inner joins first
     // the Firebird query optimiser seems to mind the order
-    for (string s : innerJoins) {
+    for (const string &s : innerJoins) {
         query += s;
         query += "\n";
     }
 
-    for (string s : outerJoins) {
+    for (const string &s : outerJoins) {
         query += s;
         query += "\n";
     }
 
-    query += "WHERE\n";
+    if (!whereCond.empty()) {
+        query += "WHERE\n";
+    }
+
     for (vector<string>::const_iterator i = whereCond.begin();
             i != whereCond.end(); ++i) {
         if (i != whereCond.begin()) {
@@ -1288,7 +1291,7 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
         query += *i;
     }
 
-    printf("%s\n", query.c_str());
+    // printf("%s\n", query.c_str());
 
     librdf_world *w = get_world(storage);
     // create iterator
