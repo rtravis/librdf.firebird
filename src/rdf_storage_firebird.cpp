@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <string>
 #include "RdfDbSchemaBuilder.h"
+#include "PreparedStatements.h"
 
 
 const char * const LIBRDF_STORAGE_FIREBIRD = "http://librdf.org/docs/api/redland-storage-module-firebird.html";
@@ -38,234 +39,22 @@ namespace rdf {
 namespace impl {
 
 // types and constants
-
-
 using fb::DbConnection;
 using fb::DbTransaction;
 using fb::DbStatement;
 using std::string;
 
-struct PreparedStatement
-{
-    const char * const sql;
-    DbStatement *st;
-    const int inParams;
-    const int outParams;
-};
 
-enum PrepStatementIndex : unsigned int
-{
-    GET_RESOURCE_ID,
-    INSERT_RESOURCE,
-    GET_BNODE_ID,
-    INSERT_BNODE,
-    GET_LITERAL_ID_1,
-    GET_LITERAL_ID_2_LANG,
-    GET_LITERAL_ID_3_DT,
-    INSERT_LITERAL,
-    SELECT_TRIPLE_0,
-    SELECT_TRIPLE_1,
-    SELECT_TRIPLE_2,
-    SELECT_TRIPLE_3,
-    SELECT_TRIPLE_4,
-    SELECT_TRIPLE_5,
-    SELECT_TRIPLE_6,
-    SELECT_TRIPLE_7,
-    SELECT_TRIPLE_8,
-    SELECT_TRIPLE_9,
-    SELECT_TRIPLE_10,
-    SELECT_TRIPLE_11,
-    INSERT_TRIPLE,
-    GET_TRIPLE_COUNT,
-    DELETE_TRIPLE,
-    LAST_PREP_STATEMENT_IDX
-};
-
-struct PreparedStatements
-{
-    PreparedStatement statements_[LAST_PREP_STATEMENT_IDX];
-
-    PreparedStatements() : statements_{
-        {
-            // GET_RESOURCE_ID
-            "SELECT ID FROM RESOURCE WHERE URI=?",
-            nullptr,
-            1, 1
-        },
-        {
-            // INSERT_RESOURCE
-            "INSERT INTO RESOURCE (ID, URI) "
-            "VALUES (NEXT VALUE FOR SEQ_RESOURCE, ?) "
-            "RETURNING ID",
-            nullptr,
-            2, 1
-        },
-        {
-            // GET_BNODE_ID
-            "SELECT ID FROM BNODE WHERE NAME=?",
-            nullptr,
-            1, 1
-        },
-        {
-            // INSERT_BNODE
-            "INSERT INTO BNODE (ID, NAME) "
-            "VALUES (NEXT VALUE FOR SEQ_BNODE, ?) "
-            "RETURNING ID",
-            nullptr,
-            2, 1
-        },
-        {
-            // GET_LITERAL_ID_1
-            "SELECT ID FROM LITERAL WHERE VAL=? "
-            "AND LANGUAGE IS NULL AND DATATYPE IS NULL",
-            nullptr,
-            1, 1
-        },
-        {
-            // GET_LITERAL_ID_2_LANG
-            "SELECT ID FROM LITERAL WHERE VAL=? AND LANGUAGE=? AND DATATYPE IS NULL",
-            nullptr,
-            2, 1
-        },
-        {
-            // GET_LITERAL_ID_3_DT
-            "SELECT ID FROM LITERAL WHERE VAL=? AND LANGUAGE IS NULL AND DATATYPE=?",
-            nullptr,
-            2, 1
-        },
-        {
-            // INSERT_LITERAL
-            "INSERT INTO LITERAL (ID, VAL, LANGUAGE, DATATYPE) "
-            "VALUES (NEXT VALUE FOR SEQ_LITERAL, ?, ?, ?) "
-            "RETURNING ID",
-            nullptr,
-            3, 1
-        },
-        {
-            // SELECT_TRIPLE_0
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_URI=? AND r.P_URI=? AND r.O_URI=? AND r.C_URI=?"
-            " PLAN (r INDEX (IDX_TRIPLE_S_URI))",
-            nullptr,
-            4, 1
-        },
-        {
-            // SELECT_TRIPLE_1
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_URI=? AND r.P_URI=? AND r.O_URI=? AND r.C_URI IS NULL"
-            " PLAN (r INDEX (IDX_TRIPLE_S_URI))",
-            nullptr,
-            3, 1
-        },
-        {
-            // SELECT_TRIPLE_2
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_URI=? AND r.P_URI=? AND r.O_BLANK=? AND r.C_URI=?"
-            " PLAN (r INDEX (IDX_TRIPLE_S_URI))",
-            nullptr,
-            4, 1
-        },
-        {
-            // SELECT_TRIPLE_3
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_URI=? AND r.P_URI=? AND r.O_BLANK=? AND r.C_URI IS NULL"
-            " PLAN (r INDEX (IDX_TRIPLE_S_URI))",
-            nullptr,
-            3, 1
-        },
-        {
-            // SELECT_TRIPLE_4
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_URI=? AND r.P_URI=? AND r.O_LITERAL=? AND r.C_URI=?"
-            " PLAN (r INDEX (IDX_TRIPLE_S_URI))",
-            nullptr,
-            4, 1
-        },
-        {
-            // SELECT_TRIPLE_5
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_URI=? AND r.P_URI=? AND r.O_LITERAL=? AND r.C_URI IS NULL"
-            " PLAN (r INDEX (IDX_TRIPLE_S_URI))",
-            nullptr,
-            3, 1
-        },
-        {
-            // SELECT_TRIPLE_6
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_URI=? AND r.C_URI=?"
-            " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_URI))",
-            nullptr,
-            4, 1
-        },
-        {
-            // SELECT_TRIPLE_7
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_URI=? AND r.C_URI IS NULL"
-            " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_URI))",
-            nullptr,
-            3, 1
-        },
-        {
-            // SELECT_TRIPLE_8
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_BLANK=? AND r.C_URI=?"
-            " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_BLANK))",
-            nullptr,
-            4, 1
-        },
-        {
-            // SELECT_TRIPLE_9
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_BLANK=? AND r.C_URI IS NULL"
-            " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_BLANK))",
-            nullptr,
-            3, 1
-        },
-        {
-            // SELECT_TRIPLE_10
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_LITERAL=? AND r.C_URI=?"
-            " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_LITERAL))",
-            nullptr,
-            4, 1
-        },
-        {
-            // SELECT_TRIPLE_11
-            "SELECT r.ID FROM TRIPLE r WHERE r.S_BLANK=? AND r.P_URI=? AND r.O_LITERAL=? AND r.C_URI IS NULL"
-            " PLAN (r INDEX (IDX_TRIPLE_S_BLANK, IDX_TRIPLE_O_LITERAL))",
-            nullptr,
-            3, 1
-        },
-        {
-            // INSERT_TRIPLE
-            "INSERT INTO TRIPLE (ID, S_URI, S_BLANK, P_URI, O_URI, O_BLANK, "
-            "O_LITERAL, C_URI) "
-            "VALUES (NEXT VALUE FOR SEQ_TRIPLE, ?, ?, ?, ?, ?, ?, ?) "
-            "RETURNING ID",
-            nullptr,
-            7, 1
-        },
-        {
-            // GET_TRIPLE_COUNT
-            "SELECT COUNT(*) FROM TRIPLE",
-            nullptr,
-            0, 1
-        },
-        {
-            // DELETE_TRIPLE
-            "DELETE FROM TRIPLE WHERE ID=?",
-            nullptr,
-            1, 0
-        }
-    }
-    {
-    }
-
-    inline PreparedStatement &get(PrepStatementIndex psi)
-    {
-        return statements_[psi];
-    }
-};
-
-struct Instance // TODO: use access control
+struct Instance
 {
     // prepared statements, lazy initialisation
     PreparedStatements statements_;
+    MatchPreparedStatements matchStatements_;
 
     DbStatement *getPrepStatement(PrepStatementIndex psi)
     {
         PreparedStatement &s = statements_.get(psi);
         if (!s.st) {
-            printf("statement: %s\n", s.sql);
             s.st = new DbStatement(std::move(db_.createStatement(s.sql, &tr_)));
         } else {
             s.st->reset();
@@ -289,6 +78,61 @@ struct Instance // TODO: use access control
             Instance &inst_;
     };
 
+    DbStatement *acquireMatchStatement(unsigned int index, void *userTag,
+                                       const string *sql = nullptr)
+    {
+        MatchPreparedStatement &mps = matchStatements_.get(index);
+        MatchPreparedStatement::StatementTagPair *p = nullptr;
+        for (MatchPreparedStatement::StatementTagPair &i : mps.statements) {
+            if (!i.second) {
+                // use statement if available
+                p = &i;
+            } else if (i.second == userTag) {
+                // but prefer the statement of this user
+                p = &i;
+                break;
+            }
+        }
+
+        if (!p) {
+            if (!sql) {
+                // no SQL to create a new prepared statement
+                assert(sql);
+                return nullptr;
+            }
+
+            DbStatement *st = new DbStatement(std::move(db_.createStatement(
+                                                       sql->c_str(), &tr_)));
+            mps.statements.emplace_back(st, userTag);
+            p = &mps.statements.back();
+            if (mps.sql.empty()) {
+                mps.sql = *sql;
+            } else {
+                assert(mps.sql == *sql);
+            }
+        } else {
+            assert(p->first);
+            // mark this prepared statement as in use by current user tag
+            p->second = userTag;
+            p->first->reset();
+        }
+
+        return p->first;
+    }
+
+    void releaseMatchStatement(unsigned int index, void *userTag)
+    {
+        MatchPreparedStatement &mps = matchStatements_.get(index);
+        for (MatchPreparedStatement::StatementTagPair &i : mps.statements) {
+            if (i.second == userTag) {
+                i.second = nullptr;
+                return;
+            }
+        }
+        assert(false && "No such user tag for prepared statement!");
+    }
+
+
     DbConnection db_;
     DbTransaction tr_;
     string name_;
@@ -308,6 +152,13 @@ struct Instance // TODO: use access control
         for (unsigned int i = 0; i != LAST_PREP_STATEMENT_IDX; ++i) {
             PreparedStatement &s = statements_.get((PrepStatementIndex) i);
             delete s.st;
+        }
+
+        for (MatchPreparedStatement &mps : matchStatements_.statements_) {
+            for (MatchPreparedStatement::StatementTagPair &i : mps.statements) {
+                assert(i.second == nullptr);
+                delete i.first;
+            }
         }
     }
 
@@ -912,8 +763,42 @@ struct Iterator
 
     DbStatement *stmt;
     DbStatement::Iterator *it;
+    unsigned int prepStatementIndex;
     bool dirty;
 };
+
+namespace empty_stream
+{
+
+static int null_iter_end_of_stream(void*)
+{
+    return 1;
+}
+
+static int null_iter_next_statement(void*)
+{
+    return RET_ERROR;
+}
+
+static void *null_iter_get_statement(void*, const int)
+{
+    return nullptr;
+}
+
+static void null_iter_finished(void*)
+{
+}
+
+librdf_stream *make_empty_stream(librdf_world *w)
+{
+    return librdf_new_stream(w, nullptr,
+                             &null_iter_end_of_stream,
+                             &null_iter_next_statement,
+                             &null_iter_get_statement,
+                             &null_iter_finished);
+}
+
+}
 
 } // namespace impl
 
@@ -1076,7 +961,8 @@ static void pub_iter_finished(void *ctx)
     librdf_storage_remove_reference(iter->storage);
 
     delete iter->it;
-    delete iter->stmt;
+    Instance *inst = get_instance(iter->storage);
+    inst->releaseMatchStatement(iter->prepStatementIndex, (void*) iter);
     LIBRDF_FREE(Iterator*, iter);
 }
 
@@ -1106,6 +992,7 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
                                                   librdf_node *context_node)
 {
     Instance *db_ctx = get_instance(storage);
+    librdf_world *w = get_world(storage);
 
     /*
     SELECT r.ID as statement_id,
@@ -1158,78 +1045,98 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
     const unsigned char *parameters[12] = {};
     size_t idx = 0;
 
+    // compute query index from a 3 * 2 * 6 * 2 branching
+    int qindex = 0;
+    int range = 72; // 72 = 3 * 2 * (1 + 1 + 3 + 1) * 2
+
+    range /= 3; // account for three fold branching
     if (node_type(s) == LIBRDF_NODE_TYPE_RESOURCE) {
         selectFields[IDX_S_URI] = "rs.URI as s_uri";
         innerJoins.emplace_back("JOIN RESOURCE rs ON r.S_URI = rs.ID");
         whereCond.emplace_back("rs.URI=?");
         len = 0;
         parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(s), &len);
+        qindex += (0 * range);
     } else if (node_type(s) == LIBRDF_NODE_TYPE_BLANK) {
         selectFields[IDX_S_BLANK] = "bs.NAME as s_blank";
         innerJoins.emplace_back("JOIN BNODE bs ON r.S_BLANK = bs.ID");
         whereCond.emplace_back("bs.NAME=?");
         len = 0;
         parameters[idx++] = librdf_node_get_counted_blank_identifier(s, &len);
+        qindex += (1 * range);
     } else if (node_type(s) == LIBRDF_NODE_TYPE_LITERAL) {
         // ain't no literal a subject
-        return nullptr;
+        return impl::empty_stream::make_empty_stream(w);
     } else {
         selectFields[IDX_S_URI] = "rs.URI as s_uri";
         selectFields[IDX_S_BLANK] = "bs.NAME as s_blank";
         outerJoins.emplace_back("LEFT JOIN RESOURCE rs ON r.S_URI = rs.ID");
         outerJoins.emplace_back("LEFT JOIN BNODE bs ON r.S_BLANK = bs.ID");
+        qindex += (2 * range);
     }
 
     innerJoins.emplace_back("JOIN RESOURCE rp ON r.P_URI = rp.id");
 
+    range /= 2;
     if (node_type(p) == LIBRDF_NODE_TYPE_RESOURCE) {
         whereCond.emplace_back("rp.URI=?");
         len = 0;
         parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(p),
-                &len);
+                                                         &len);
+        qindex += (0 * range);
     } else if (node_type(p) != LIBRDF_NODE_TYPE_UNKNOWN) {
         assert(!"invalid predicate type in query");
-        return nullptr;
+        return impl::empty_stream::make_empty_stream(w);
+    } else {
+        qindex += (1 * range);
     }
 
+    range /= 6;
     if (node_type(o) == LIBRDF_NODE_TYPE_RESOURCE) {
         selectFields[IDX_O_URI] = "ro.URI as o_uri";
         innerJoins.emplace_back("JOIN RESOURCE ro ON r.O_URI = ro.ID");
         whereCond.emplace_back("ro.URI=?");
         len = 0;
         parameters[idx++] = librdf_uri_as_counted_string(librdf_node_get_uri(o),
-                &len);
+                                                         &len);
+        qindex += (0 * range);
     } else if (node_type(o) == LIBRDF_NODE_TYPE_BLANK) {
         selectFields[IDX_O_BLANK] = "bo.NAME as o_blank";
         innerJoins.emplace_back("JOIN BNODE bo ON r.O_BLANK = bo.ID");
         whereCond.emplace_back("bo.NAME=?");
         len = 0;
         parameters[idx++] = librdf_node_get_counted_blank_identifier(o, &len);
+        qindex += (1 * range);
     } else if (node_type(o) == LIBRDF_NODE_TYPE_LITERAL) {
         selectFields[IDX_O_TEXT] = "lo.VAL as o_literal";
         selectFields[IDX_O_LANGUAGE] = "lo.LANGUAGE as o_lit_lang";
         innerJoins.emplace_back("JOIN LITERAL lo ON r.O_LITERAL = lo.ID");
         whereCond.emplace_back("lo.VAL=?");
         len = 0;
-        parameters[idx++] = librdf_node_get_literal_value_as_counted_string(o,
-                &len);
+        parameters[idx++] = librdf_node_get_literal_value_as_counted_string(
+                                                                       o, &len);
 
         librdf_uri *uri = librdf_node_get_literal_value_datatype_uri(o);
-        if (uri) {
+        const char *l = librdf_node_get_literal_value_language(o);
+
+        if (!l && !uri) {
+            qindex += (4 * range);
+        } else if (l) {
+            whereCond.emplace_back("lo.LANGUAGE=?");
+            parameters[idx++] = (const unsigned char*) l;
+            qindex += (3 * range);
+        } else {
+            whereCond.emplace_back("lo.LANGUAGE IS NULL");
+        }
+
+        if (uri && !l) {
             selectFields[IDX_O_DATATYPE] = "ldt.URI as o_lit_dt";
             innerJoins.emplace_back(
                     "JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID");
             whereCond.emplace_back("ldt.URI=?");
             len = 0;
             parameters[idx++] = librdf_uri_as_counted_string(uri, &len);
-        }
-
-        const char *l = librdf_node_get_literal_value_language(o);
-        if (l) {
-            whereCond.emplace_back("lo.LANGUAGE=?");
-            parameters[idx++] = (const unsigned char*) l;
-        } else {
-            whereCond.emplace_back("lo.LANGUAGE IS NULL");
+            qindex += (2 * range);
         }
     } else {
         selectFields[IDX_O_URI] = "ro.URI as o_uri";
@@ -1243,21 +1150,26 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
         outerJoins.emplace_back("LEFT JOIN LITERAL lo ON r.O_LITERAL = lo.ID");
         outerJoins.emplace_back(
                 "LEFT JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID");
+        qindex += (5 * range);
     }
 
+    range /= 2;
+    assert(range == 1);
     if (context_node) {
         innerJoins.emplace_back("JOIN RESOURCE c ON r.C_URI = c.ID");
         whereCond.emplace_back("c.URI=?");
         len = 0;
         parameters[idx++] = librdf_uri_as_counted_string(
                 librdf_node_get_uri(context_node), &len);
+        qindex += (0 * range);
     } else {
         outerJoins.emplace_back("LEFT JOIN RESOURCE c ON r.C_URI = c.ID");
+        qindex += (1 * range);
     }
 
     // build query
     string query = "SELECT\n";
-    for (string s : selectFields) {
+    for (const string &s : selectFields) {
         query += s;
         query += ",\n";
     };
@@ -1291,18 +1203,15 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
         query += *i;
     }
 
-    // printf("%s\n", query.c_str());
-
-    librdf_world *w = get_world(storage);
     // create iterator
     Iterator *iter = LIBRDF_CALLOC(Iterator *, sizeof(Iterator), 1);
     iter->storage = storage;
     iter->pattern = librdf_new_statement_from_statement(statement);
     iter->statement = librdf_new_statement(w);
     iter->context = context_node;
-    iter->stmt = new DbStatement(
-            std::move(
-                    db_ctx->db_.createStatement(query.c_str(), &db_ctx->tr_)));
+    iter->prepStatementIndex = (unsigned int) qindex;
+    iter->stmt = db_ctx->acquireMatchStatement(iter->prepStatementIndex,
+                                               (void*) iter, &query);
     iter->it = nullptr;
     iter->dirty = false;
 
@@ -1380,7 +1289,6 @@ static int pub_context_add_statements(librdf_storage *storage,
         context_id = get_resource_node_id(storage, context_node, true);
     }
 
-    int count = 0;
     for(; !librdf_stream_end(statement_stream);
            librdf_stream_next(statement_stream)) {
         librdf_statement *stmt = librdf_stream_get_object(statement_stream);
@@ -1388,10 +1296,6 @@ static int pub_context_add_statements(librdf_storage *storage,
         if(RET_OK != rc) {
             pub_transaction_rollback(storage);
             return rc;
-        }
-        if ((count++ % 200000) == 0) {
-            // TODO: remove this!
-            printf("%07d statements added\n", count);
         }
     }
 
