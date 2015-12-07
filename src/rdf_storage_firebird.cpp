@@ -1120,19 +1120,21 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
         const char *l = librdf_node_get_literal_value_language(o);
 
         if (!l && !uri) {
+            whereCond.emplace_back("lo.LANGUAGE IS NULL");
+            whereCond.emplace_back("lo.DATATYPE IS NULL");
             qindex += (4 * range);
         } else if (l) {
             whereCond.emplace_back("lo.LANGUAGE=?");
+            whereCond.emplace_back("lo.DATATYPE IS NULL");
             parameters[idx++] = (const unsigned char*) l;
             qindex += (3 * range);
-        } else {
-            whereCond.emplace_back("lo.LANGUAGE IS NULL");
         }
 
         if (uri && !l) {
             selectFields[IDX_O_DATATYPE] = "ldt.URI as o_lit_dt";
             innerJoins.emplace_back(
                     "JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID");
+            whereCond.emplace_back("lo.LANGUAGE IS NULL");
             whereCond.emplace_back("ldt.URI=?");
             len = 0;
             parameters[idx++] = librdf_uri_as_counted_string(uri, &len);
