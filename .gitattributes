@@ -1,0 +1,5 @@
+# replace leading tabs by 4 spaces on commit
+*.h filter=tab2space
+*.hpp filter=tab2space
+*.c filter=tab2space
+*.cpp filter=tab2space

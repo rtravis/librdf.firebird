@@ -1,10 +1,16 @@
 /*
- * PreparedStatements.h
+ * PreparedStatements.h - manage the prepared statements cache
  *
- *  Created on: Dec 5, 2015
- *      Author: toby
+ * This is part of the "librdf.firebird" storage module for the
+ * "Redland RDF Library" (http://librdf.org/) that stores and
+ * retrieves RDF data from a Firebird database.
+ *
+ * @created: Dec 5, 2015
+ *
+ * @copyright: Copyright (c) 2015 Robert Zavalczki, distributed
+ * under the terms and conditions of the Lesser GNU General
+ * Public License version 2.1
  */
-
 #ifndef PREPAREDSTATEMENTS_H_
 #define PREPAREDSTATEMENTS_H_
 

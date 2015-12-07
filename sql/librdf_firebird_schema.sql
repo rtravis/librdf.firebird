@@ -34,11 +34,11 @@ CREATE TABLE Literal
     LANGUAGE varchar(16) DEFAULT NULL,
     DATATYPE BIGINT DEFAULT NULL,
     CONSTRAINT PK_LITERAL PRIMARY KEY(ID),
-    CONSTRAINT FK_LITERAL_DATATYPE 
+    CONSTRAINT FK_LITERAL_DATATYPE
         FOREIGN KEY (DATATYPE) REFERENCES Resource (ID),
     CONSTRAINT UQ_LITERAL_VAL UNIQUE (VAL, LANGUAGE, DATATYPE),
     CONSTRAINT CK_LITERAL_LANG_DT
-        CHECK ((LANGUAGE IS NULL AND DATATYPE IS NULL) OR 
+        CHECK ((LANGUAGE IS NULL AND DATATYPE IS NULL) OR
                (LANGUAGE IS NOT NULL AND DATATYPE IS NULL) OR
                (LANGUAGE IS NULL AND DATATYPE IS NOT NULL))
 );
@@ -62,7 +62,7 @@ CREATE TABLE Triple
     O_LITERAL bigint,
     C_URI bigint DEFAULT NULL,
     CONSTRAINT PK_TRIPLE PRIMARY KEY(ID),
-    CONSTRAINT FK_TRIPLE_S_URI 
+    CONSTRAINT FK_TRIPLE_S_URI
         FOREIGN KEY (S_URI) REFERENCES Resource (ID),
     CONSTRAINT FK_TRIPLE_S_BLANK
         FOREIGN KEY (S_BLANK) REFERENCES Bnode (ID),
@@ -79,11 +79,11 @@ CREATE TABLE Triple
     -- CONSTRAINT UQ_TRIPLE
     --     UNIQUE (S_URI, S_BLANK, P_URI, O_URI, O_BLANK, O_LITERAL, C_URI),
     CONSTRAINT CK_TRIPLE_SUBJ
-        CHECK ((S_URI IS NOT NULL AND S_BLANK IS NULL) OR 
+        CHECK ((S_URI IS NOT NULL AND S_BLANK IS NULL) OR
                (S_URI IS NULL AND S_BLANK IS NOT NULL)),
     CONSTRAINT CK_TRIPLE_OBJ
-        CHECK ((O_URI IS NOT NULL AND O_BLANK IS NULL AND O_LITERAL IS NULL) OR 
-               (O_URI IS NULL AND O_BLANK IS NOT NULL AND O_LITERAL IS NULL) OR 
+        CHECK ((O_URI IS NOT NULL AND O_BLANK IS NULL AND O_LITERAL IS NULL) OR
+               (O_URI IS NULL AND O_BLANK IS NOT NULL AND O_LITERAL IS NULL) OR
                (O_URI IS NULL AND O_BLANK IS NULL AND O_LITERAL IS NOT NULL))
 );
 
@@ -102,8 +102,8 @@ CREATE VIEW STATEMENTS_N3 as
 SELECT r.ID as statement_id,
        coalesce('<' || rs.URI || '>', '_:' || bs.NAME) as subject,
        '<' || rp.URI || '>' as predicate,
-       coalesce('<' || ro.URI || '>', '_:' || bo.NAME, 
-       '"' || lo.VAL || '"' || 
+       coalesce('<' || ro.URI || '>', '_:' || bo.NAME,
+       '"' || lo.VAL || '"' ||
            coalesce('@' || lo.LANGUAGE, '') ||
            coalesce('^^' || '<' || ldt.URI || '>', '')) as object,
        '<' || c.URI || '>' as context

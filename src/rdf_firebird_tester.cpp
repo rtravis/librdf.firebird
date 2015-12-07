@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 {
     string importFile;
     string queryFile;
-	string dbFile;
+    string dbFile;
 
     for (int i = 0; i < argc; ++i) {
 
@@ -204,10 +204,10 @@ int main(int argc, char *argv[])
         }
     }
 
-	if (dbFile.empty()) {
-	    cout << "Database file (-d switch) is required!\n";
+    if (dbFile.empty()) {
+        cout << "Database file (-d switch) is required!\n";
         return usage(argc, argv);
-	}
+    }
 
     if (importFile.empty() && queryFile.empty()) {
         return usage(argc, argv);

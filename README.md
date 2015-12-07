@@ -4,14 +4,14 @@
 ## Overview
 
 librdf.firebird is a storage module for the [Redland RDF Library](http://librdf.org/)
-that stores and retrieves [RDF](http://www.w3.org/RDF/) data from a Firebird 
+that stores and retrieves [RDF](http://www.w3.org/RDF/) data from a Firebird
 database. Its purpose is to provide reliable and fast access to very large RDF
 data sets. Unlike most other persistent librdf storage modules, librdf.firebird
 doesn't use hashes as a handle to the actual data, a method that - at least in
 theory - could give you wrong results.
 
 Inspired by the [official sqlite store](https://github.com/dajobe/librdf/blob/master/src/rdf_storage_sqlite.c)
-and the [improved sqlite store](https://github.com/mro/librdf.sqlite). 
+and the [improved sqlite store](https://github.com/mro/librdf.sqlite).
 
 ## Requirements
 
@@ -29,7 +29,7 @@ to the "rdf_firebird_tester.cpp" file in the sources directory.
     ....
     librdf_world *world = ...;
     ....
-    librdf_init_storage_firebird(world); // register storage factory  
+    librdf_init_storage_firebird(world); // register storage factory
     ....
     const char* options = "new='yes'";
     librdf_storage *newStorage = librdf_new_storage(
