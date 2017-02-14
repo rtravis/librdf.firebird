@@ -23,18 +23,23 @@ Firebird C API is included as a git submodule.
 ## Usage
 
 For sample usage: RDF data importing and running SPARQL queries you can refer
-to the "rdf_firebird_tester.cpp" file in the sources directory.
+to the rdf_firebird_tester.cpp file in the sources directory.
 
-    #include "rdf_storage_firebird.h"
-    ....
+```cpp
+
+    #include <rdf_storage_firebird.h>
+    // ....
     librdf_world *world = ...;
-    ....
-    librdf_init_storage_firebird(world); // register storage factory
-    ....
-    const char* options = "new='yes'";
+    // ....
+    librdf_init_storage_firebird(world); // register the storage factory
+    // ....
+    const char *options ="new='yes', host='localhost', "
+                         "user='sysdba', password='masterkey'";
+
     librdf_storage *newStorage = librdf_new_storage(
                                     world, LIBRDF_STORAGE_FIREBIRD,
                                     file_path, options);
+```
 
 ## License
 
