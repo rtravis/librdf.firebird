@@ -35,18 +35,24 @@ static shared_ptr<librdf_world> make_rdf_world()
 }
 
 static shared_ptr<librdf_storage> make_rdf_storage(librdf_world *world,
-                                                const char *file_path,
+                                                const char *db_name,
+                                                const char *server,
+                                                const char *user,
+                                                const char *password,
                                                 bool is_new = false,
                                                 bool update_index_stats = false)
 {
-    char options[64];
+    char options[2048];
+    // "new='yes',host='localhost',user='sysdba',password='masterkey'"
     snprintf(options, sizeof(options),
-            "new='%s', update_index_stats='%s'",
-            is_new ? "yes" : "no", update_index_stats ? "yes" : "no");
+            "host='%s', user='%s', password='%s', new='%s', update_index_stats='%s'",
+            server, user, password, is_new ? "yes" : "no",
+            update_index_stats ? "yes" : "no");
+
     shared_ptr<librdf_storage> store(
                                 librdf_new_storage(world,
                                                    LIBRDF_STORAGE_FIREBIRD,
-                                                   file_path,
+                                                   db_name,
                                                    options),
                                 &librdf_free_storage);
     return store;
@@ -175,21 +181,45 @@ void run_query(librdf_world *world, librdf_model *model,
 
 static int usage(int /* argc */, char *argv[])
 {
-    cout << "Usage: " << argv[0]
-         << " -d <db_file> [-i <import_rdf_file>] | [-q <sparql_query_file> ]\n";
+    cout << "Synopsys:\n"
+         << "    " << argv[0] << " <db_connection> [-i <import_rdf_file>] | [-q <sparql_query_file>]\n"
+         << "\n"
+         << "db_connection:\n"
+         << "    -d <db_name> [-new] [-s <server>] [-u <user>] [-p <password>]\n"
+         << "\n";
     return 1;
 }
 
 
 int main(int argc, char *argv[])
 {
+    string dbName;
+    string server = "localhost";
+    string userName = "sysdba";
+    string password = "masterkey";
     string importFile;
     string queryFile;
-    string dbFile;
+    bool is_new = false;
 
     for (int i = 0; i < argc; ++i) {
 
-        if (strcmp(argv[i], "-i") == 0 && (i + 1) < argc) {
+        if (strcmp(argv[i], "-d") == 0 && (i + 1) < argc) {
+            // database file
+            dbName = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], "-s") == 0 && (i + 1) < argc) {
+            // server
+            server = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], "-u") == 0 && (i + 1) < argc) {
+            // user
+            userName = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], "-p") == 0 && (i + 1) < argc) {
+            // password
+            password = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], "-i") == 0 && (i + 1) < argc) {
             // import file
             importFile = argv[i + 1];
             i++;
@@ -197,15 +227,17 @@ int main(int argc, char *argv[])
             // query file
             queryFile = argv[i + 1];
             i++;
-        } else if (strcmp(argv[i], "-d") == 0 && (i + 1) < argc) {
-            // database file
-            dbFile = argv[i + 1];
-            i++;
+        } else if (strcmp(argv[i], "-new") == 0) {
+            is_new = true;
+        } else if (strcmp(argv[i], "-h") == 0) {
+            // database connection options
+            usage(argc, argv);
+            return 0;
         }
     }
 
-    if (dbFile.empty()) {
-        cout << "Database file (-d switch) is required!\n";
+    if (dbName.empty()) {
+        cout << "Database name (-d switch) is required!\n";
         return usage(argc, argv);
     }
 
@@ -218,10 +250,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    bool is_new = (access(dbFile.c_str(), F_OK) < 0);
-
     shared_ptr<librdf_storage> store = make_rdf_storage(world.get(),
-                                                        dbFile.c_str(), is_new);
+                                            dbName.c_str(), server.c_str(),
+                                            userName.c_str(), password.c_str(),
+                                            is_new);
     if (!store) {
         return 1;
     }

@@ -225,9 +225,10 @@ using fb::DbConnection;
 using fb::DbStatement;
 using fb::DbTransaction;
 
-void create_firebird_rdf_db(const char *dbName)
+void create_firebird_rdf_db(const char *dbName, const char *server,
+                            const char *userName, const char *userPassword)
 {
-    DbConnection db{dbName};
+    DbConnection db{dbName, server, userName, userPassword};
     DbTransaction tr{db.nativeHandle(), 1};
 
     for (DbObject &obj : db_schema) {
@@ -282,9 +283,10 @@ void create_firebird_rdf_db(const char *dbName)
     }
 }
 
-void update_index_statistics(const char *dbName)
+void update_index_statistics(const char *dbName, const char *server,
+                             const char *userName, const char *userPassword)
 {
-    DbConnection db{dbName};
+    DbConnection db{dbName, server, userName, userPassword};
     DbTransaction tr{db.nativeHandle(), 1};
 
     const char *sql = "SELECT RDB$INDEX_NAME "

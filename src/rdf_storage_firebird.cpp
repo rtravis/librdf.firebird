@@ -135,15 +135,15 @@ struct Instance
 
     DbConnection db_;
     DbTransaction tr_;
-    string name_;
     GetResourceId getResId_;
     cache::GenericCache<string, int64_t, GetResourceId> resCache;
 
-    Instance(const char *db_path) : db_{db_path},
-                                    tr_{db_.nativeHandle(), 1},
-                                    name_{db_path},
-                                    getResId_(*this),
-                                    resCache(getResId_)
+    Instance(const char *dbName, const char *server,
+             const char *userName, const char *userPassword)
+            : db_{dbName, server, userName, userPassword},
+              tr_{db_.nativeHandle(), 1},
+              getResId_(*this),
+              resCache(getResId_)
     {
     }
 
@@ -630,19 +630,24 @@ static int pub_init(librdf_storage *storage, const char *name,
         update_index_stats = true;
     }
 
+    // "new='yes',host='localhost',database='red',user='foo','password='bar'"
+    std::unique_ptr<char, decltype(&free)> server(librdf_hash_get(options, "host"), &free);
+    std::unique_ptr<char, decltype(&free)> user(librdf_hash_get(options, "user"), &free);
+    std::unique_ptr<char, decltype(&free)> password(librdf_hash_get(options, "password"), &free);
+
     int rc = RET_OK;
     try {
 
         if (is_new) {
-            create_firebird_rdf_db(name);
+            create_firebird_rdf_db(name, server.get(), user.get(), password.get());
         }
 
         if (update_index_stats) {
             // optimize queries
-            update_index_statistics(name);
+            update_index_statistics(name, server.get(), user.get(), password.get());
         }
 
-        Instance *inst = new Instance(name);
+        Instance *inst = new Instance(name, server.get(), user.get(), password.get());
 
         librdf_storage_set_instance(storage, inst);
 
@@ -679,7 +684,7 @@ static int pub_close(librdf_storage *storage)
     return rc;
 }
 
-static int pub_open(librdf_storage *storage, librdf_model *model)
+static int pub_open(librdf_storage * /* storage */, librdf_model */* model */)
 {
     // By this time pub_init will have already dealt with initialisation:
     // database connection and setup. We have nothing to do.
@@ -715,7 +720,7 @@ static librdf_node *pub_get_feature(librdf_storage *storage, librdf_uri *feature
     return NULL;
 }
 
-static int pub_transaction_start(librdf_storage *storage)
+static int pub_transaction_start(librdf_storage * /* storage */)
 {
     // We already are using a transaction.
     return 0;
@@ -974,7 +979,7 @@ static int pub_size(librdf_storage *storage)
 }
 
 
-static librdf_iterator *pub_get_contexts(librdf_storage *storage)
+static librdf_iterator *pub_get_contexts(librdf_storage * /* storage */)
 {
     // assert(0 && "not implemented yet."); TODO:
     return NULL;
@@ -1350,7 +1355,8 @@ static int pub_remove_statement(librdf_storage *storage, librdf_statement *state
     return pub_context_remove_statement(storage, NULL, statement);
 }
 
-static int pub_context_remove_statements(librdf_storage *storage, librdf_node *context_node)
+static int pub_context_remove_statements(librdf_storage * /* storage */,
+                                         librdf_node * /* context_node */)
 {
     assert(!"Not implemented");
     return RET_ERROR; // TODO: implement this

@@ -17,8 +17,15 @@
 namespace rdf
 {
 
-void create_firebird_rdf_db(const char *dbName);
-void update_index_statistics(const char *dbName);
+void create_firebird_rdf_db(const char *dbName,
+                            const char *server = nullptr,
+                            const char *userName = nullptr,
+                            const char *userPassword = nullptr);
+
+void update_index_statistics(const char *dbName,
+                             const char *server = nullptr,
+                             const char *userName = nullptr,
+                             const char *userPassword = nullptr);
 
 } /* namespace rdf */
 
