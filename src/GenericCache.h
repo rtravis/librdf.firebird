@@ -14,10 +14,12 @@
 #ifndef GENERICCACHE_H_
 #define GENERICCACHE_H_
 
-#include <unordered_map>
 #include <algorithm>
-#include <vector>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
 
 
 namespace cache
@@ -27,11 +29,11 @@ template<typename KeyType,
         typename ValueType,
         class GetValueFunc,
         ValueType NotFoundValue = ValueType(),
-        unsigned int MAX_SIZE = 512>
-class GenericCache
+        size_t TRIM_TO_SIZE = 512>
+class GenericCache final
 {
 public:
-    GenericCache(GetValueFunc func) : func_(func)
+    GenericCache(GetValueFunc func) : generation_(0), dict_(), func_(func)
     {
     }
 
@@ -41,18 +43,18 @@ public:
 
     ValueType getValue(KeyType key)
     {
-        if (generation_++ % (2 * MAX_SIZE) == 0) {
+        if (generation_++ % (2 * TRIM_TO_SIZE) == 0) {
             removeOldItems();
         }
 
-        CmIterator i = map_.find(key);
-        if (i == map_.end()) {
+        CdIterator i = dict_.find(key);
+        if (i == dict_.end()) {
             // cache miss, do the hard work
             ValueType val = func_(key);
             if (val != NotFoundValue) {
-                return map_.emplace(
+                return dict_.emplace(
                         std::make_pair(
-                            key, Item{ generation_, val })).first->second.value_;
+                            key, Item{generation_, val})).first->second.value_;
             } else {
                 return NotFoundValue;
             }
@@ -67,41 +69,41 @@ private:
 
     void removeOldItems()
     {
-        if (map_.size() <= MAX_SIZE) {
+        if (dict_.size() <= TRIM_TO_SIZE) {
             return;
         }
 
-        std::vector<typename CacheMap::iterator> items;
-        items.reserve(map_.size());
-        for (auto i = map_.begin(); i != map_.end(); ++i) {
+        std::vector<typename CacheDict::iterator> items;
+        items.reserve(dict_.size());
+        for (auto i = dict_.begin(); i != dict_.end(); ++i) {
             items.push_back(i);
         }
 
-        auto genCompare = [] (CmIterator a, CmIterator b) {
+        auto generationCompare = [] (CdIterator a, CdIterator b) {
             return b->second.generation_ < a->second.generation_;
         };
 
-        assert(items.size() > MAX_SIZE);
-        auto nthElem = items.begin() + MAX_SIZE;
+        assert(items.size() > TRIM_TO_SIZE);
+        auto nthElem = items.begin() + TRIM_TO_SIZE;
 
-        std::nth_element(items.begin(), nthElem, items.end(), genCompare);
+        std::nth_element(items.begin(), nthElem, items.end(), generationCompare);
 
         for (auto i = nthElem; i != items.end(); ++i) {
-            map_.erase(*i);
+            dict_.erase(*i);
         }
     }
 
     struct Item
     {
-        int64_t generation_;
+        uint64_t generation_;
         ValueType value_;
     };
 
-    typedef std::unordered_map<KeyType, Item> CacheMap;
-    typedef typename CacheMap::iterator CmIterator;
+    typedef std::unordered_map<KeyType, Item> CacheDict;
+    typedef typename CacheDict::iterator CdIterator;
 
-    int64_t generation_ = 0;
-    CacheMap map_;
+    uint64_t generation_;
+    CacheDict dict_;
     GetValueFunc func_;
 };
 
