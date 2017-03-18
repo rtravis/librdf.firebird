@@ -198,6 +198,7 @@ int main(int argc, char *argv[])
     string userName = "sysdba";
     string password = "masterkey";
     string importFile;
+    string contextUri;
     string queryFile;
     bool is_new = false;
 
@@ -222,6 +223,10 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[i], "-i") == 0 && (i + 1) < argc) {
             // import file
             importFile = argv[i + 1];
+            i++;
+        } else if (strcmp(argv[i], "-c") == 0 && (i + 1) < argc) {
+            // context URI for an import operation
+            contextUri = argv[i + 1];
             i++;
         } else if (strcmp(argv[i], "-q") == 0 && (i + 1) < argc) {
             // query file
@@ -264,7 +269,9 @@ int main(int argc, char *argv[])
     }
 
     if (!importFile.empty()) {
-        return import_file(world.get(), model.get(), importFile.c_str()) ? 0 : 1;
+        return import_file(world.get(), model.get(), importFile.c_str(),
+                        nullptr, nullptr,
+                        contextUri.empty() ? nullptr : contextUri.c_str()) ? 0 : 1;
     }
 
     string query;
