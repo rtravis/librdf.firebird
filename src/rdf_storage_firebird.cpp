@@ -12,16 +12,18 @@
  * Public License version 2.1
  */
 #include "rdf_storage_firebird.h"
+
 #include "fb/DbConnection.h"
-#include "fb/DbTransaction.h"
-#include "fb/DbStatement.h"
 #include "fb/DbRowProxy.h"
+#include "fb/DbStatement.h"
+#include "fb/DbTransaction.h"
 #include "GenericCache.h"
-#include <string.h>
-#include <assert.h>
-#include <string>
-#include "RdfDbSchemaBuilder.h"
 #include "PreparedStatements.h"
+#include "RdfDbSchemaBuilder.h"
+
+#include <cassert>
+#include <cstring>
+#include <string>
 
 
 const char * const LIBRDF_STORAGE_FIREBIRD = "http://librdf.org/docs/api/redland-storage-module-firebird.html";
@@ -29,13 +31,15 @@ const char * const LIBRDF_STORAGE_FIREBIRD = "http://librdf.org/docs/api/redland
 // all macros should go here
 #define RET_ERROR 1
 #define RET_OK 0
+
+#ifndef LIBRDF_MALLOC
 #define LIBRDF_MALLOC(type, size) (type) malloc(size)
 #define LIBRDF_CALLOC(type, size, count) (type) calloc(count, size)
 #define LIBRDF_FREE(type, ptr) free((type) ptr)
+#endif
 
 
 namespace rdf {
-
 namespace impl {
 
 // types and constants
@@ -162,7 +166,7 @@ struct Instance
         }
     }
 
-    inline int64_t getResourceId(const char *res)
+    int64_t getResourceId(const char *res)
     {
         return resCache.getValue(res);
     }
@@ -755,22 +759,9 @@ static int pub_transaction_rollback(librdf_storage *storage)
     return rc;
 }
 
-// iterator implementation
+// iterators implementation
 
 namespace impl {
-
-struct Iterator
-{
-    librdf_storage *storage;
-    librdf_statement *pattern;
-    librdf_statement *statement;
-    librdf_node *context;
-
-    DbStatement *stmt;
-    DbStatement::Iterator *it;
-    unsigned int prepStatementIndex;
-    bool dirty;
-};
 
 namespace empty_stream
 {
@@ -803,22 +794,35 @@ librdf_stream *make_empty_stream(librdf_world *w)
                              &null_iter_finished);
 }
 
-}
+} // namespace empty_stream
 
-} // namespace impl
+namespace statement_stream {
 
-static int pub_iter_end_of_stream(void *ctx)
+struct StatementIterator
+{
+    librdf_storage *storage;
+    librdf_statement *pattern;
+    librdf_statement *statement;
+    librdf_node *context;
+
+    DbStatement *stmt;
+    DbStatement::Iterator *it;
+    unsigned int prepStatementIndex;
+    bool dirty;
+};
+
+static int statement_iter_end_of_stream(void *ctx)
 {
     assert(ctx && "context mustn't be NULL");
-    Iterator *iter = (Iterator*) ctx;
+    StatementIterator *iter = (StatementIterator*) ctx;
     return !iter->it || !(*iter->it != iter->stmt->end());
 }
 
-static int pub_iter_next_statement(void *ctx)
+static int statement_iter_next_statement(void *ctx)
 {
     assert(ctx && "context mustn't be NULL");
-    Iterator *iter = (Iterator*) ctx;
-    if(pub_iter_end_of_stream(iter)) {
+    StatementIterator *iter = (StatementIterator*) ctx;
+    if (statement_iter_end_of_stream(iter)) {
         return RET_ERROR;
     }
 
@@ -827,20 +831,20 @@ static int pub_iter_next_statement(void *ctx)
     // move to the next item
     ++(*iter->it);
 
-    if(pub_iter_end_of_stream(iter)) {
+    if (statement_iter_end_of_stream(iter)) {
         return RET_ERROR;
     }
 
     return RET_OK;
 }
 
-static void *pub_iter_get_statement(void *ctx, const int getMethod)
+static void *statement_iter_get_statement(void *ctx, const int getMethod)
 {
     assert(ctx && "context mustn't be NULL");
     const librdf_iterator_get_method_flags flags = (librdf_iterator_get_method_flags) getMethod;
-    Iterator *iter = (Iterator*) ctx;
+    StatementIterator *iter = (StatementIterator*) ctx;
 
-    switch(flags) {
+    switch (flags) {
     case LIBRDF_ITERATOR_GET_METHOD_GET_OBJECT:
         break;
     case LIBRDF_ITERATOR_GET_METHOD_GET_CONTEXT:
@@ -854,7 +858,7 @@ static void *pub_iter_get_statement(void *ctx, const int getMethod)
 
     assert(flags == LIBRDF_ITERATOR_GET_METHOD_GET_OBJECT);
 
-    if(!iter->dirty || pub_iter_end_of_stream(ctx)) {
+    if (!iter->dirty || statement_iter_end_of_stream(ctx)) {
         return iter->statement;
     }
 
@@ -910,7 +914,7 @@ static void *pub_iter_get_statement(void *ctx, const int getMethod)
                         w, (const unsigned char*) field.c_str());
     }
 
-    if(!node) {
+    if (!node) {
         field = row.getText(IDX_O_BLANK);
         if (!field.empty()) {
             node = librdf_new_node_from_blank_identifier(
@@ -918,7 +922,7 @@ static void *pub_iter_get_statement(void *ctx, const int getMethod)
         }
     }
 
-    if(!node) {
+    if (!node) {
         field = row.getText(IDX_O_TEXT);
         if (!field.empty()) { // TODO: should we better check for null?
             string lang = row.getText(IDX_O_LANGUAGE);
@@ -936,7 +940,7 @@ static void *pub_iter_get_statement(void *ctx, const int getMethod)
         }
     }
 
-    if(!node) {
+    if (!node) {
         return NULL;
     }
 
@@ -950,16 +954,16 @@ static void *pub_iter_get_statement(void *ctx, const int getMethod)
     return iter->statement;
 }
 
-static void pub_iter_finished(void *ctx)
+static void statement_iter_finished(void *ctx)
 {
     assert(ctx && "context mustn't be NULL");
-    Iterator *iter = (Iterator*) ctx;
+    StatementIterator *iter = (StatementIterator*) ctx;
 
-    if(iter->pattern) {
+    if (iter->pattern) {
         librdf_free_statement(iter->pattern);
     }
 
-    if(iter->statement) {
+    if (iter->statement) {
         librdf_free_statement(iter->statement);
     }
 
@@ -971,6 +975,115 @@ static void pub_iter_finished(void *ctx)
     LIBRDF_FREE(Iterator*, iter);
 }
 
+} // namespace statement_stream
+
+namespace context_stream {
+
+struct ContextIterator
+{
+    librdf_storage *storage;
+    librdf_node *current;
+    DbStatement *stmt;
+    DbStatement::Iterator *it;
+    bool dirty;
+};
+
+static int context_iter_is_end(void *ctx)
+{
+    assert(ctx && "context mustn't be NULL");
+    ContextIterator *iter = (ContextIterator*) ctx;
+    return !iter->it || !(*iter->it != iter->stmt->end());
+}
+
+static int context_iter_next(void *ctx)
+{
+    assert(ctx && "context mustn't be NULL");
+    ContextIterator *iter = (ContextIterator*) ctx;
+    if (context_iter_is_end(iter)) {
+        return RET_ERROR;
+    }
+
+    iter->dirty = true;
+
+    // move to the next item
+    ++(*iter->it);
+
+    if (context_iter_is_end(iter)) {
+        return RET_ERROR;
+    }
+
+    return RET_OK;
+}
+
+static void *context_iter_get_current(void *ctx, const int getMethod)
+{
+    assert(ctx && "context mustn't be NULL");
+    const librdf_iterator_get_method_flags flags = (librdf_iterator_get_method_flags) getMethod;
+    ContextIterator *iter = (ContextIterator*) ctx;
+
+    switch (flags) {
+    case LIBRDF_ITERATOR_GET_METHOD_GET_OBJECT:
+        break;
+    case LIBRDF_ITERATOR_GET_METHOD_GET_CONTEXT:
+        return nullptr;
+    default:
+        librdf_log(get_world(iter->storage), 0,
+                   LIBRDF_LOG_ERROR, LIBRDF_FROM_STORAGE, NULL,
+                   "Unknown iterator method flag %d", flags);
+        return NULL;
+    }
+
+    assert(flags == LIBRDF_ITERATOR_GET_METHOD_GET_OBJECT);
+
+    if (!iter->dirty || context_iter_is_end(ctx)) {
+        return iter->current;
+    }
+
+    // row columns refer to find_triples_sql
+    fb::DbRowProxy row = *(*iter->it);
+
+    librdf_node *node = nullptr;
+    librdf_world *w = get_world(iter->storage);
+
+    assert(!row.fieldIsNull(0));
+    if (row.fieldIsNull(0)) {
+        return nullptr;
+    }
+
+    node = librdf_new_node_from_uri_string(w,
+            (const unsigned char*) row.getText(0).c_str());
+
+    if (!node) {
+        return nullptr;
+    }
+
+    if (iter->current) {
+        librdf_free_node(iter->current);
+    }
+
+    iter->current = node;
+    iter->dirty = false;
+    return iter->current;
+}
+
+static void context_iter_finished(void *ctx)
+{
+    assert(ctx && "context mustn't be NULL");
+    ContextIterator *iter = (ContextIterator*) ctx;
+
+    if (iter->current) {
+        librdf_free_node(iter->current);
+    }
+
+    delete iter->it;
+    librdf_storage_remove_reference(iter->storage);
+    LIBRDF_FREE(ContextIterator*, iter);
+}
+
+} // namespace context_stream
+
+} // namespace impl
+
 static int pub_size(librdf_storage *storage)
 {
     Instance *ctx = get_instance(storage);
@@ -979,10 +1092,31 @@ static int pub_size(librdf_storage *storage)
 }
 
 
-static librdf_iterator *pub_get_contexts(librdf_storage * /* storage */)
+static librdf_iterator *pub_get_contexts(librdf_storage *storage)
 {
-    // assert(0 && "not implemented yet."); TODO:
+#if 0
+    (void) storage;
     return NULL;
+#else
+    // TODO: this is very inefficient, the database schema needs to change to
+    // implement this properly!
+    using namespace context_stream;
+    ContextIterator *iter = LIBRDF_CALLOC(ContextIterator*, sizeof(ContextIterator), 1);
+    iter->storage = storage;
+    iter->stmt = get_instance(storage)->getPrepStatement(GET_CONTEXTS);
+    iter->it = new DbStatement::Iterator(std::move(iter->stmt->iterate()));
+    iter->dirty = true;
+    librdf_storage_add_reference(iter->storage);
+
+    librdf_iterator *iterator = librdf_new_iterator(get_world(storage), iter,
+            &context_iter_is_end, &context_iter_next, &context_iter_get_current,
+            &context_iter_finished);
+
+    if (!iterator) {
+        context_iter_finished(iter);
+    }
+    return iterator;
+#endif
 }
 
 
@@ -1211,7 +1345,9 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
     }
 
     // create iterator
-    Iterator *iter = LIBRDF_CALLOC(Iterator *, sizeof(Iterator), 1);
+    using namespace statement_stream;
+    StatementIterator *iter = LIBRDF_CALLOC(
+            StatementIterator *, sizeof(StatementIterator), 1);
     iter->storage = storage;
     iter->pattern = librdf_new_statement_from_statement(statement);
     iter->statement = librdf_new_statement(w);
@@ -1231,9 +1367,9 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
     iter->dirty = true;
 
     librdf_storage_add_reference(iter->storage);
-    librdf_stream *stream = librdf_new_stream(w, iter, &pub_iter_end_of_stream,
-            &pub_iter_next_statement, &pub_iter_get_statement,
-            &pub_iter_finished);
+    librdf_stream *stream = librdf_new_stream(w, iter, &statement_iter_end_of_stream,
+            &statement_iter_next_statement, &statement_iter_get_statement,
+            &statement_iter_finished);
 
     return stream;
 }

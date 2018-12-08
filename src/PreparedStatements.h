@@ -64,6 +64,7 @@ enum PrepStatementIndex : unsigned int
     INSERT_TRIPLE,
     GET_TRIPLE_COUNT,
     DELETE_TRIPLE,
+    GET_CONTEXTS,
     LAST_PREP_STATEMENT_IDX
 };
 
@@ -83,7 +84,7 @@ inline PreparedStatement &PreparedStatements::get(PrepStatementIndex psi)
 
 struct MatchPreparedStatement
 {
-    typedef void* UserTag;
+    using UserTag = void*;
     using StatementTagPair = std::pair<DbStatement*, UserTag>;
 
     vector<StatementTagPair> statements;

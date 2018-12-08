@@ -178,7 +178,15 @@ PreparedStatements::PreparedStatements() : statements_{
             "DELETE FROM TRIPLE WHERE ID=?",
             nullptr,
             1, 0
-        }
+        },
+        {
+            // GET_CONTEXTS
+            "SELECT DISTINCT r.URI "
+            "FROM TRIPLE t "
+            "JOIN RESOURCE r ON r.ID = t.C_URI",
+            nullptr,
+            0, 1
+        },
     }
 {
 }
