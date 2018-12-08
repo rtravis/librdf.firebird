@@ -160,7 +160,8 @@ static bool import_file(librdf_world *world,
 }
 
 void run_query(librdf_world *world, librdf_model *model,
-               const char *query_string, const char *lang = "sparql")
+               const char *query_string, const char *outputFormat,
+               const char *lang = "sparql")
 {
     shared_ptr<librdf_query> rdf_query(
                                 librdf_new_query(world, lang, nullptr,
@@ -173,7 +174,17 @@ void run_query(librdf_world *world, librdf_model *model,
         return;
     }
 
-    librdf_query_results_to_file_handle2(res, stdout, "csv",
+    /*
+    xml, SPARQL XML Query Results, application/sparql-results+xml, http://www.w3.org/ns/formats/SPARQL_Results_XML
+    json, SPARQL JSON Query Results, application/sparql-results+json, http://www.w3.org/ns/formats/SPARQL_Results_JSON
+    table, Table, text/plain, -
+    csv, Comma Separated Values (CSV), text/csv, http://www.w3.org/ns/formats/SPARQL_Results_CSV
+    tsv, Tab Separated Values (TSV), text/tab-separated-values, http://www.w3.org/ns/formats/SPARQL_Results_TSV
+    html, HTML Table, application/xhtml+xml, http://www.w3.org/1999/xhtml
+    turtle, Turtle Query Results, text/turtle, http://www.w3.org/TeamSubmission/turtle/
+    rdfxml, RDF/XML Query Results, application/rdf+xml, -
+     */
+    librdf_query_results_to_file_handle2(res, stdout, outputFormat,
                                          nullptr, nullptr, nullptr);
 
     librdf_free_query_results(res);
@@ -182,7 +193,8 @@ void run_query(librdf_world *world, librdf_model *model,
 static int usage(int /* argc */, char *argv[])
 {
     cout << "Synopsys:\n"
-         << "    " << argv[0] << " <db_connection> [-i <import_rdf_file>] | [-q <sparql_query_file>]\n"
+         << "    " << argv[0] << " <db_connection> [-i <import_rdf_file>] | [-q <sparql_query_file>|-]\n"
+         << "    " << "    [-outform <output_format>]\n"
          << "\n"
          << "db_connection:\n"
          << "    -d <db_name> [-new] [-s <server>] [-u <user>] [-p <password>]\n"
@@ -200,6 +212,7 @@ int main(int argc, char *argv[])
     string importFile;
     string contextUri;
     string queryFile;
+    string outform = "csv";
     bool is_new = false;
 
     for (int i = 0; i < argc; ++i) {
@@ -238,6 +251,10 @@ int main(int argc, char *argv[])
             // database connection options
             usage(argc, argv);
             return 0;
+        } else if (strcmp(argv[i], "-outform") == 0 && (i + 1) < argc) {
+            // output format
+            outform = argv[i + 1];
+            i++;
         }
     }
 
@@ -276,12 +293,18 @@ int main(int argc, char *argv[])
 
     string query;
     if (!queryFile.empty()) {
-        ifstream ifs(queryFile.c_str());
         stringstream ss;
-        ss << ifs.rdbuf();
+        if (queryFile == "-") {
+            // read from the standard input
+            ss << std::cin.rdbuf();
+        } else {
+            ifstream ifs(queryFile.c_str());
+            ss << ifs.rdbuf();
+        }
+
         query = ss.str();
     }
 
-    run_query(world.get(), model.get(), query.c_str());
+    run_query(world.get(), model.get(), query.c_str(), outform.c_str());
     return 0;
 }
