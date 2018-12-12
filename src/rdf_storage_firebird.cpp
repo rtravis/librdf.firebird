@@ -225,6 +225,22 @@ static int64_t add_resource(librdf_storage *storage, const char *uri)
     return st->uniqueResult().getInt64(0);
 }
 
+static int64_t get_context_id(librdf_storage *storage, const char *uri)
+{
+    Instance *ctx = get_instance(storage);
+    DbStatement *st = ctx->getPrepStatement(GET_CONTEXT_ID);
+    st->setText(1, uri);
+    return st->uniqueResult().getInt64(0);
+}
+
+static int64_t add_context(librdf_storage *storage, const char *uri)
+{
+    Instance *ctx = get_instance(storage);
+    DbStatement *st = ctx->getPrepStatement(INSERT_CONTEXT);
+    st->setText(1, uri);
+    return st->uniqueResult().getInt64(0);
+}
+
 static int64_t get_blank_id(librdf_storage *storage, const char *blank)
 {
     Instance *ctx = get_instance(storage);
@@ -304,25 +320,25 @@ static int64_t add_literal(librdf_storage *storage, const char *literal,
 }
 
 /**
- * Return 0 if !create and resource node does not exist, return id of newly
- * created node.
+ * Return 0 if !create and context node does not exist, return the id of the
+ * newly created node.
  */
-static int64_t get_resource_node_id(librdf_storage *storage,
-                                    librdf_node *resource_node,
+static int64_t get_context_node_id(librdf_storage *storage,
+                                    librdf_node *context_node,
                                     bool create)
 {
-    assert(node_type(resource_node) == LIBRDF_NODE_TYPE_RESOURCE);
+    assert(node_type(context_node) == LIBRDF_NODE_TYPE_RESOURCE);
 
     size_t len = 0;
     const unsigned char *str = librdf_uri_as_counted_string(
-                                    librdf_node_get_uri(resource_node), &len);
+                                    librdf_node_get_uri(context_node), &len);
 
-    int64_t node_id = get_resource_id(storage, (const char*) str);
+    int64_t node_id = get_context_id(storage, (const char*) str);
     if (node_id == 0) {
         if (!create) {
             return 0;
         } else {
-            node_id = add_resource(storage, (const char*) str);
+            node_id = add_context(storage, (const char*) str);
         }
     }
     return node_id;
@@ -340,7 +356,6 @@ static int64_t find_statement(librdf_storage *storage,
     librdf_node *s = librdf_statement_get_subject(statement);
     librdf_node *p = librdf_statement_get_predicate(statement);
     librdf_node *o = librdf_statement_get_object(statement);
-
 
     int64_t sUri = 0;
     int64_t sBlank = 0;
@@ -1091,7 +1106,6 @@ static int pub_size(librdf_storage *storage)
     return (int) st->uniqueResult().getInt64(0);
 }
 
-
 static librdf_iterator *pub_get_contexts(librdf_storage *storage)
 {
 #if 0
@@ -1118,7 +1132,6 @@ static librdf_iterator *pub_get_contexts(librdf_storage *storage)
     return iterator;
 #endif
 }
-
 
 static int pub_contains_statement(librdf_storage *storage,
                                   librdf_statement *statement)
@@ -1152,7 +1165,7 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
     LEFT JOIN BNODE bo ON r.O_BLANK = bo.ID
     LEFT JOIN LITERAL lo ON r.O_LITERAL = lo.ID
     LEFT JOIN RESOURCE ldt ON lo.DATATYPE = ldt.ID
-    LEFT JOIN RESOURCE c ON r.C_URI = c.ID
+    LEFT JOIN CONTEXT c ON r.C_URI = c.ID
     */
 
     using std::vector;
@@ -1297,14 +1310,14 @@ static librdf_stream *pub_context_find_statements(librdf_storage *storage,
     range /= 2;
     assert(range == 1);
     if (context_node) {
-        innerJoins.emplace_back("JOIN RESOURCE c ON r.C_URI = c.ID");
+        innerJoins.emplace_back("JOIN CONTEXT c ON r.C_URI = c.ID");
         whereCond.emplace_back("c.URI=?");
         len = 0;
         parameters[idx++] = librdf_uri_as_counted_string(
                 librdf_node_get_uri(context_node), &len);
         qindex += (0 * range);
     } else {
-        outerJoins.emplace_back("LEFT JOIN RESOURCE c ON r.C_URI = c.ID");
+        outerJoins.emplace_back("LEFT JOIN CONTEXT c ON r.C_URI = c.ID");
         qindex += (1 * range);
     }
 
@@ -1415,7 +1428,7 @@ static int pub_context_add_statement(librdf_storage *storage,
 
     int64_t context_id = 0;
     if (context_node) {
-        context_id = get_resource_node_id(storage, context_node, true);
+        context_id = get_context_node_id(storage, context_node, true);
     }
 
     return priv_context_add_statement(storage, context_id, statement);
@@ -1429,7 +1442,7 @@ static int pub_context_add_statements(librdf_storage *storage,
 
     int64_t context_id = 0;
     if (context_node) {
-        context_id = get_resource_node_id(storage, context_node, true);
+        context_id = get_context_node_id(storage, context_node, true);
     }
 
     for(; !librdf_stream_end(statement_stream);
@@ -1465,7 +1478,7 @@ static int pub_context_remove_statement(librdf_storage *storage,
 {
     int64_t context_id = 0;
     if (context_node) {
-        context_id = get_resource_node_id(storage, context_node, false);
+        context_id = get_context_node_id(storage, context_node, false);
         if (!context_id) {
             return RET_ERROR;
         }

@@ -43,6 +43,8 @@ enum PrepStatementIndex : unsigned int
 {
     GET_RESOURCE_ID,
     INSERT_RESOURCE,
+    GET_CONTEXT_ID,
+    INSERT_CONTEXT,
     GET_BNODE_ID,
     INSERT_BNODE,
     GET_LITERAL_ID_1,

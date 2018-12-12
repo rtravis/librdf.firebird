@@ -34,6 +34,20 @@ PreparedStatements::PreparedStatements() : statements_{
             2, 1
         },
         {
+            // GET_CONTEXT_ID
+            "SELECT ID FROM CONTEXT WHERE URI=?",
+            nullptr,
+            1, 1
+        },
+        {
+            // INSERT_CONTEXT
+            "INSERT INTO CONTEXT (ID, URI) "
+            "VALUES (NEXT VALUE FOR SEQ_CONTEXT, ?) "
+            "RETURNING ID",
+            nullptr,
+            2, 1
+        },
+        {
             // GET_BNODE_ID
             "SELECT ID FROM BNODE WHERE NAME=?",
             nullptr,
@@ -181,9 +195,8 @@ PreparedStatements::PreparedStatements() : statements_{
         },
         {
             // GET_CONTEXTS
-            "SELECT DISTINCT r.URI "
-            "FROM TRIPLE t "
-            "JOIN RESOURCE r ON r.ID = t.C_URI",
+            "SELECT URI "
+            "FROM CONTEXT",
             nullptr,
             0, 1
         },

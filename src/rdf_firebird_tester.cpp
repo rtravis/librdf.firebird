@@ -11,14 +11,16 @@
  * under the terms and conditions of the Lesser GNU General
  * Public License version 2.1
  */
-#include <memory>
-#include <unistd.h>
-#include <map>
-#include <iostream>
-#include <sstream>
+#include <cstring>
 #include <fstream>
-#include <string.h>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <unistd.h>
+
 #include "rdf_storage_firebird.h"
+
 
 using namespace std;
 
